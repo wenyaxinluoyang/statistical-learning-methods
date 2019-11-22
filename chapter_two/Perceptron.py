@@ -3,6 +3,8 @@ import numpy as np
 import random
 '''
 李航：《统计学习方法》 第二章数据理论的代码实现
+感知机学习算法的原始形式
+
 模型模型:
 yi = sign(w*xi + b)
 sign(t)  t>0, sign(t)=1; t<0, sign(t)=-1
@@ -11,10 +13,7 @@ w*x + b = 0
 找到一个超平面，把正实例点和负实例点划分到超平面两侧使得
 y(i)=+1  w*x(i)+b>0
 y(i)=-1  w*x(i)+b<0
-'''
 
-
-'''
 损失函数，误分类点到超平面的距离
 对误分类的点来说，-y(i)(w*x(i)+b) > 0 
 因此误分类点xi到超平面的距离是
@@ -36,7 +35,6 @@ L(w,b) = -SUM(yi* (w*xi + b))
 设学习速率为learning_rate（0，1], 随机选择
 w + learning*yi*xi) -> w
 b + learning*yi) -> b
-
 '''
 
 # f(x) = sign(x)   x>0返回1，x<0返回-1
@@ -51,8 +49,7 @@ def func(x, w, b):
 # 求解最佳模型参数
 def perceptron(x_list, y_list, learning_rate, w, b):
     # w, b = init_params()
-    # 有可能这样的平面不存在，循环不会结束，永远不会收敛
-    max_time = int(100 * len(x_list))
+    # 前提是训练集线性可分，否则感知机算法不收敛
     count = 0
     while True:
         error_x_list, error_y_list = error_point(x_list, y_list, w, b)
@@ -62,8 +59,6 @@ def perceptron(x_list, y_list, learning_rate, w, b):
         w, b = SGD(learning_rate, error_x_list, error_y_list, w, b)
         count = count + 1
         print('第', count , '次梯度下降: w =', w, ', b =', b)
-        if count == max_time:
-            break
     return w,b
 
 # 获取当前模型的误分类点
