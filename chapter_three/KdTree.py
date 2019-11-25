@@ -6,69 +6,51 @@
 
 import numpy as np
 import math
+import copy
 
 INF = float('inf') # 无穷大
 
 # 节点，里面应该有属于它的样本点，左孩子，右孩子
 class Node:
-    def __init__(self, x_list, median, index):
-        self.__x_list = x_list
-        self.__median = median
-        self.__index = index
-        self.__left = None
-        self.__right = None
-    def get_median(self):
-        return self.__median
-    def get_index(self):
-        return self.__index
-    def get_left_child(self):
-        return self.__left
-    def get_right_child(self):
-        return self.__right
-    def get_x_list(self):
-        return self.__x_list
-    def set_left_child(self, node):
-        self.__left = node
-    def set_right_child(self, node):
-        self.__right = node
-    def set_x_list(self, x_list):
-        self.__x_list = x_list
+    def __init__(self, point, split_value, dimension_index):
+        self.point = point
+        self.split_value = split_value
+        self.dimension_index = dimension_index
+        self.left = None
+        self.right = None
 
 # 递归构建kd树
 def build_kd_tree(x_list, k, depth=0):
     if len(x_list)==0: return None
-    index = depth%k # 选取index维，用垂直index维并过中位数初的超平面作为划分
-    values = [x[index][0] for x in x_list]
-    values = sorted(values)
-    median = values[len(values)//2]
-    temp_list = [x for x in x_list if x[index][0]==median]
-    left_list = [x for x in x_list if x[index][0]<median]
-    right_list = [x for x in x_list if x[index][0]>median]
-    root = Node(temp_list, median, index) # 创建根节点, 随后递归构建左右子树
-    root.set_left_child(build_kd_tree(left_list, k, depth+1))
-    root.set_right_child(build_kd_tree(right_list, k, depth+1))
+    dimension_index = depth%k  # 维度索引
+    x_list.sort(key=lambda x: x[dimension_index][0])
+    split_index = len(x_list)//2 # 切分点索引
+    point = x_list[split_index] # 切分点
+    split_value = point[dimension_index][0] # 切分值
+    left_list = x_list[0: split_index]
+    right_list = x_list[split_index+1: len(x_list)]
+    root = Node(point, split_value, dimension_index) # 创建根节点, 随后递归构建左右子树
+    root.left = build_kd_tree(left_list, k, depth+1)
+    root.right = build_kd_tree(right_list, k, depth+1)
     return root # 返回当前根节点
 
 # 打印二叉树
 def display(root, level=0, note='root'):
     if root is None: return
     print('level =', level, 'note =', note)
-    print('对第', root.get_index(), '维，以该坐标轴的中位数为分点，以垂直与该维，并过切分点的超平面做划分')
-    print('切分值为:', root.get_median())
+    print('对第', root.dimension_index, '维，以该坐标轴的中位数为分点，以垂直与该维，并过切分点的超平面做划分')
+    print('切分值为:', root.split_value)
     print('落在该超平面上的点有:')
-    x_list = root.get_x_list()
-    if len(x_list) != 0:
-        for x in x_list:
-            print(x)
-            print('*'*50)
-    print('-'*50)
-    display(root.get_left_child(), level+1, note='left') # 打印左子树
-    display(root.get_right_child(), level+1, note='right') # 打印右子树
+    point = root.point
+    print(point)
+    print('*'*50)
+    display(root.left, level+1, note='left') # 打印左子树
+    display(root.right, level+1, note='right') # 打印右子树
 
 # p>=1，当p=2，称为欧氏距离
 # p=1, 称为曼哈顿距离
 # p趋于正无穷, 它氏各个坐标距离的最大值
-def distance(self, x1, x2, p):
+def distance(x1, x2, p):
     sum = 0
     for vector1, vector2 in zip(x1, x2):
         v1 = vector1[0]
@@ -77,38 +59,95 @@ def distance(self, x1, x2, p):
     return math.pow(sum, 1/p) # 开p次方根
 
 
+# 寻找目标叶子节点
+def find_target_leaf_node(root, target):
+    nearest_dis, nearest_node = INF, None
+    node = copy.deepcopy(root)
+    path = []
+    while node is not None:
+        path.append(node)
+        point = node.point # 切分空间的超平面上的点
+        dis = distance(point, target, 2)
+        if dis < nearest_dis:
+            nearest_dis = dis
+            nearest_node = node
+        dimension_index = node.dimension_index
+        split_value = node.split_value
+        if target[dimension_index][0] <= split_value:
+            node = node.left
+        else:
+            node = node.right
+    return nearest_dis, nearest_node, path
 
-# kd树搜索
-def kd_tree_search(root, x):
-    left_child = root.get_left_child()
-    right_child = root.get_right_child()
-    if left_child==None and right_child==None:
-        nearest_dis = distance(x, root, 2)
-        return nearest_dis, root  # 叶子节点，该节点为最近点
-    index = root.get_index()
-    median = root.get_median()
-    value = x[index][0]
-    if value < median:
-        if left_child is None: nearest_dis, nearest_node = INF, None
-        else: nearest_dis, nearest_node = kd_tree_search(left_child, x)
-    if value > median:
-        if right_child is None: nearest_dis, nearest_node = INF, None
-        else: nearest_dis, nearest_node = kd_tree_search(right_child, x)
-    x_list = root.get_x_list()
-    flag = False
-    for item in x_list:
-        dis = distance(x, item, 2)
-        if dis < now_dis:
-            now_dis = dis
-            flag = True
-    if flag:
-        nearest_node = root
 
+def find_target_leaf_node_two(root, target, k=1):
+    k_nearest = [(distance(root.point, target, 2), root)]
+    node = copy.deepcopy(root)
+    path = []
+    while node is not None:
+        path.append(node)
+        k_nearest.sort(key=lambda dis:  dis[0]) # 按照距离从小到大排序
+        point = node.point
+        dis = distance(point, target, 2)
+        if dis < k_nearest[-1][0]:
+            if len(k_nearest)<k: k_nearest.append((dis, node))
+            else:
+                k_nearest.pop()
+                k_nearest.append((dis, node))
+        dimension_index = node.dimension_index
+        split_value = node.split_value
+        if target[dimension_index][0]<= split_value:
+            node = node.left
+        else:
+            node = node.right
+    return k_nearest, path
+
+# kd树搜索，搜索最近邻
+def kd_tree_search_nearest(root, target):
+    # 先找到目标叶子节点
+    nearest_dis, nearest_node, path = find_target_leaf_node(root, target)
+    # 回溯
+    while len(path)!=0:
+        node = path.pop()
+        split_value = node.split_value
+        dimension_index = node.dimension_index
+        # 目标点与当前最近点距离的半径的圆与其另一边的子空间有交点
+        if abs(target[dimension_index][0]-split_value) < nearest_dis:
+            # 原来进入的是左子树，则需要搜索右子树
+            if target[dimension_index][0]<=split_value:
+                temp_node = node.right
+            else:
+                temp_node = node.left
+            if temp_node is not None:
+                path.append(temp_node)
+                dis = distance(target, temp_node.point, 2)
+                if  dis < nearest_dis:
+                    nearest_dis = dis
+                    nearest_node = temp_node
     return nearest_dis, nearest_node
 
-
-
-
+# 寻找target的k近邻, 比最近邻多了一个排序数组
+def kd_tree_search_knearest(root, target, k):
+    k_nearest, path = find_target_leaf_node_two(root, target, k)
+    while(len(path)) != 0:
+        node = path.pop()
+        split_value = node.split_value
+        dimension_index = node.dimension_index
+        k_nearest.sort(key=lambda dis: dis[0])
+        if abs(target[dimension_index][0]-split_value) < k_nearest[-1][0]:
+            if target[dimension_index][0]<=split_value:
+                temp_node = node.right
+            else:
+                temp_node = node.left
+            if temp_node is not None:
+                path.append(temp_node)
+                dis = distance(target, temp_node.point, 2)
+                if dis < k_nearest[-1][0]:
+                    if len(k_nearest)<k: k_nearest.append((dis, temp_node))
+                    else:
+                        k_nearest.pop()
+                        k_nearest.append((dis, temp_node))
+    return k_nearest
 
 # 获取例3.2数据
 def example_three_two():
@@ -121,11 +160,17 @@ def example_three_two():
     x_list = [x1, x2, x3, x4, x5, x6]
     return x_list
 
+
 if __name__ == '__main__':
     x_list = example_three_two()
-    #x1 = x_list[0]
-    #print(x1[0][0])
     root = build_kd_tree(x_list, k=2)
-    display(root)
+    # display(root)
+    target = np.array([1,5]).reshape((2,1))
+    k_nearest = kd_tree_search_knearest(root, target, k=3)
+    # 求距离target最近的前k个点
+    for item in k_nearest:
+        print('distance:', item[0])
+        print('point:', item[1].point)
+        print('-'*50)
 
 
