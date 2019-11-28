@@ -58,9 +58,6 @@ def information_gain_of_features(df, set_x, set_y):
     print('Y的熵', hy)
     return hy, fea_infor_gain
 
-
-
-
 def get_data():
     set_x = [('青年','中年', '老年'), ('是', '否'), ('是', '否'), ('一般', '好', '非常好')]
     set_y = ['是', '否']
@@ -80,4 +77,4 @@ def get_data():
 
 if __name__ == '__main__':
     df, set_x, set_y = get_data()
-    decision_tree(df, set_x, set_y)
+    information_gain_of_features(df, set_x, set_y)
