@@ -20,7 +20,7 @@ def information_gain(x_list, value_of_x, y_list, value_of_y, hy):
 # 信息增益比
 def information_gain_ratio(x_list, value_of_x, y_list, value_of_y, hy):
     h = condition_entropy(x_list, value_of_x, y_list, value_of_y)
-    return h/hy
+    return (hy-h)/hy
 
 # 条件熵, X给定条件下Y的条件概率分布的熵对X的数学期望
 def condition_entropy(x_list, value_of_x, y_list, value_of_y):
@@ -63,7 +63,20 @@ def infor_gain_of_fea(df, set_x, set_y):
         fea_infor_gain[col] = information_gain(df[col].values.tolist(), set_x[col], y_list, set_y, hy)
     print(fea_infor_gain)
     print('Y的熵', hy)
-    return hy, fea_infor_gain
+    return fea_infor_gain
+
+def infor_gain_ratio_of_fea(df, set_x, set_y):
+    columns = df.columns.values.tolist()
+    columns.remove('Y')
+    # 每种特征的信息增益
+    fea_infor_ratio_gain = {col: 0 for col in columns}
+    y_list = df['Y'].values.tolist()
+    hy, value_count_y = entropy(y_list, set_y)
+    for col in columns:
+        fea_infor_ratio_gain[col] = information_gain_ratio(df[col].values.tolist(), set_x[col], y_list, set_y, hy)
+    print(fea_infor_ratio_gain)
+    print('Y的熵', hy)
+    return fea_infor_ratio_gain
 
 def get_data():
     set_x = {
@@ -103,7 +116,7 @@ def ID3(df, set_x, set_y, epsilon):
     if len(feature_names) == 0:
         tree = Node(max_count_y, None, None)
         return tree
-    hy, fea_infor_gain = infor_gain_of_fea(df, set_x, set_y)
+    fea_infor_gain = infor_gain_of_fea(df, set_x, set_y)
     max_infor_gain = 0
     chose_fea = None
     for key,value in fea_infor_gain.items():
@@ -121,6 +134,44 @@ def ID3(df, set_x, set_y, epsilon):
         tree.child_list.append(child)
     return tree
 
+
+# 使用C4.5算法构建生成树, 用信息增益比来选择特征
+def C45(df, set_x, set_y, epsilon):
+    if df.empty: return None
+    y_unique = df['Y'].values.tolist()
+    # 训练数据集所有实例都属于同一类
+    if len(set(y_unique)) == 1:
+        tree = Node(y_unique[0], None, None)
+        return tree
+    feature_names = df.columns.values.tolist()
+    feature_names.remove('Y')
+    temp = df['Y'].value_counts()
+    temp = temp.reset_index()
+    max_count_y = temp.loc[0]['index']
+    # 特征集是空集
+    if len(feature_names) == 0:
+        tree = Node(max_count_y, None, None)
+        return tree
+    fea_infor_ratio_gain = infor_gain_ratio_of_fea(df, set_x, set_y)
+    max_infor_gain = 0
+    chose_fea = None
+    for key, value in fea_infor_ratio_gain.items():
+        if value > max_infor_gain:
+            max_infor_gain = value
+            chose_fea = key
+    if max_infor_gain < epsilon:
+        tree = Node(max_count_y, None, None)
+        return tree
+    tree = Node(max_count_y, chose_fea, None)
+    for index, data in df.groupby([chose_fea]):
+        sub_df = data.drop([chose_fea], axis=1)
+        child = C45(sub_df, set_x, set_y, epsilon)
+        child.fea_value = index
+        tree.child_list.append(child)
+    return tree
+
+
+
 def display(tree, level=1):
     if tree is not None:
         print('第', level, '层')
@@ -134,5 +185,6 @@ def display(tree, level=1):
 if __name__ == '__main__':
     df, set_x, set_y = get_data()
     tree = ID3(df, set_x, set_y, 0.001)
+    #tree = C45(df, set_x, set_y, 0.001)
     display(tree)
     #infor_gain_ratio_of_fea(df, set_x, set_y)
