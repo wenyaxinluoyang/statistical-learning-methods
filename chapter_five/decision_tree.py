@@ -16,18 +16,19 @@ class Node():
 
 
 
-# 信息增益值
-def information_gain(x_list, value_of_x, y_list, value_of_y, hy):
+# 信息增益
+def igain(x_list, value_of_x, y_list, value_of_y, hy):
     return hy - condition_entropy(x_list, value_of_x, y_list, value_of_y)
 
 # 信息增益比
-def information_gain_ratio(x_list, value_of_x, y_list, value_of_y, hy):
+def igain_ratio(x_list, value_of_x, y_list, value_of_y, hy):
     h = condition_entropy(x_list, value_of_x, y_list, value_of_y)
-    return (hy-h)/hy
-
-# 条件熵, X给定条件下Y的条件概率分布的熵对X的数学期望
-def condition_entropy(x_list, value_of_x, y_list, value_of_y):
     hx, value_count = entropy(x_list, value_of_x)
+    return (hy-h)/hx
+
+# 计算条件熵
+def condition_entropy(x_list, value_of_x, y_list, value_of_y):
+    hx, value_count = entropy(x_list, value_of_x) # x的经验熵，以及x取各种值的计数
     temp = {x: [] for x in value_of_x}
     for x,y in zip(x_list, y_list):
         temp[x].append(y)
@@ -35,10 +36,13 @@ def condition_entropy(x_list, value_of_x, y_list, value_of_y):
     h = 0
     for x, y_belong_x in temp.items():
         hyx, value_count_y = entropy(y_belong_x, value_of_y)
+        # print(x, hyx)
+        # print(value_count[x], total_x)
+        # print('=======')
         h = h + (value_count[x]/total_x)*hyx
     return h
 
-# 计算随机变量的熵
+# 计算经验熵
 def entropy(value_list, value_of_x):
     value_count = {value:0 for value in value_of_x}
     total = len(value_list)
@@ -49,13 +53,13 @@ def entropy(value_list, value_of_x):
         count = value_count[value]
         p = count/total
         if count == 0: continue
-        else: h = h + p*math.log(p,2)
+        else: h = h + p*math.log(p, 2)
     h = -h
     return h, value_count
 
 
 # 特征的信息增益比
-def infor_gain_of_fea(df, set_x, set_y):
+def igain_of_fea(df, set_x, set_y):
     columns = df.columns.values.tolist()
     columns.remove('Y')
     # 每种特征的信息增益
@@ -63,12 +67,12 @@ def infor_gain_of_fea(df, set_x, set_y):
     y_list = df['Y'].values.tolist()
     hy, value_count_y = entropy(y_list, set_y)
     for col in columns:
-        fea_infor_gain[col] = information_gain(df[col].values.tolist(), set_x[col], y_list, set_y, hy)
+        fea_infor_gain[col] = igain(df[col].values.tolist(), set_x[col], y_list, set_y, hy)
     print(fea_infor_gain)
     print('Y的熵', hy)
     return fea_infor_gain
 
-def infor_gain_ratio_of_fea(df, set_x, set_y):
+def igain_ratio_of_fea(df, set_x, set_y):
     columns = df.columns.values.tolist()
     columns.remove('Y')
     # 每种特征的信息增益
@@ -76,7 +80,7 @@ def infor_gain_ratio_of_fea(df, set_x, set_y):
     y_list = df['Y'].values.tolist()
     hy, value_count_y = entropy(y_list, set_y)
     for col in columns:
-        fea_infor_ratio_gain[col] = information_gain_ratio(df[col].values.tolist(), set_x[col], y_list, set_y, hy)
+        fea_infor_ratio_gain[col] = igain_ratio(df[col].values.tolist(), set_x[col], y_list, set_y, hy)
     print(fea_infor_ratio_gain)
     print('Y的熵', hy)
     return fea_infor_ratio_gain
@@ -102,6 +106,33 @@ def get_data():
     return df, set_x, set_y
 
 
+def get_data_two():
+    day = ['07-05', '07-06', '07-07', '07-09', '07-10', '07-12', '07-14', '07-15', '07-20', '07-21', '07-22', '07-23',
+           '07-26', '07-30']
+    temperature = ['hot', 'hot', 'hot', 'cool', 'cool', 'mild', 'cool', 'mild', 'mild', 'mild', 'hot', 'mild', 'cool', 'mild']
+    outlook = ['sunny', 'sunny', 'overcast', 'rain', 'overcast', 'sunny', 'sunny', 'rain', 'sunny', 'overcast', 'overcast', 'sunny', 'sunny', 'sunny']
+    humidity = ['high', 'high', 'high', 'normal', 'normal', 'high', 'normal', 'normal', 'normal', 'high', 'normal', 'high', 'normal', 'high']
+    windy = ['false', 'true', 'false', 'false', 'true', 'false', 'false', 'false', 'true', 'true', 'false', 'true', 'true', 'false']
+    y = ['no', 'no', 'yes', 'yes', 'yes', 'no', 'yes', 'yes', 'yes', 'yes', 'yes', 'no', 'no', 'yes']
+    set_x = {
+        'day': list(set(day)),
+        'temperature': list(set(temperature)),
+        'outlook': list(set(outlook)),
+        'humidity': list(set(humidity)),
+        'windy': list(set(windy))
+    }
+    df = pd.DataFrame()
+    df['day'] = day
+    df['temperature'] = temperature
+    df['outlook'] = outlook
+    df['humidity'] = humidity
+    df['windy'] = windy
+    df['Y'] = y
+    return df, set_x, list(set(y))
+
+
+
+
 # 使用ID3构建决策树
 def ID3(df, set_x, set_y, epsilon):
     if df.empty: return None
@@ -119,7 +150,7 @@ def ID3(df, set_x, set_y, epsilon):
     if len(feature_names) == 0:
         tree = Node(max_count_y, None, None, df)
         return tree
-    fea_infor_gain = infor_gain_of_fea(df, set_x, set_y)
+    fea_infor_gain = igain_of_fea(df, set_x, set_y)
     max_infor_gain = 0
     chose_fea = None
     for key,value in fea_infor_gain.items():
@@ -155,7 +186,7 @@ def C45(df, set_x, set_y, epsilon):
     if len(feature_names) == 0:
         tree = Node(max_count_y, None, None, df)
         return tree
-    fea_infor_ratio_gain = infor_gain_ratio_of_fea(df, set_x, set_y)
+    fea_infor_ratio_gain = igain_ratio_of_fea(df, set_x, set_y)
     max_infor_gain = 0
     chose_fea = None
     for key, value in fea_infor_ratio_gain.items():
@@ -213,12 +244,23 @@ def cut_branch(tree, alfa, set_y):
 
 
 if __name__ == '__main__':
-    df, set_x, set_y = get_data()
+    #df, set_x, set_y = get_data()
+    print(-0.25*math.log(0.25,2) - 0.75*math.log(0.75,2))
+    print(0.81*40)
+    k = 1000
+    p11 = (50*k+5)/(100*k)
+    p12 = (50*k-5)/(100*k)
+    temp = (-p11*math.log(p11,2) - p12*math.log(p12,2))
+    print(temp)
+    print(199992/(200*k))
+    df, set_x, set_y = get_data_two()
+    temp = igain_of_fea(df, set_x, set_y)
+    temp = igain_ratio_of_fea(df, set_x, set_y)
     #tree = ID3(df, set_x, set_y, 0.001)
-    tree = C45(df, set_x, set_y, 0.001)
-    display(tree)
-    cost, is_leaf, tree = cut_branch(tree, 0.5, set_y)
-    print('-'*10, '减枝后的树', '-'*10)
-    display(tree)
+    # tree = C45(df, set_x, set_y, 0.001)
+    # display(tree)
+    # cost, is_leaf, tree = cut_branch(tree, 0.5, set_y)
+    # print('-'*10, '减枝后的树', '-'*10)
+    # display(tree)
 
     #infor_gain_ratio_of_fea(df, set_x, set_y)
