@@ -106,33 +106,6 @@ def get_data():
     return df, set_x, set_y
 
 
-def get_data_two():
-    day = ['07-05', '07-06', '07-07', '07-09', '07-10', '07-12', '07-14', '07-15', '07-20', '07-21', '07-22', '07-23',
-           '07-26', '07-30']
-    temperature = ['hot', 'hot', 'hot', 'cool', 'cool', 'mild', 'cool', 'mild', 'mild', 'mild', 'hot', 'mild', 'cool', 'mild']
-    outlook = ['sunny', 'sunny', 'overcast', 'rain', 'overcast', 'sunny', 'sunny', 'rain', 'sunny', 'overcast', 'overcast', 'sunny', 'sunny', 'sunny']
-    humidity = ['high', 'high', 'high', 'normal', 'normal', 'high', 'normal', 'normal', 'normal', 'high', 'normal', 'high', 'normal', 'high']
-    windy = ['false', 'true', 'false', 'false', 'true', 'false', 'false', 'false', 'true', 'true', 'false', 'true', 'true', 'false']
-    y = ['no', 'no', 'yes', 'yes', 'yes', 'no', 'yes', 'yes', 'yes', 'yes', 'yes', 'no', 'no', 'yes']
-    set_x = {
-        'day': list(set(day)),
-        'temperature': list(set(temperature)),
-        'outlook': list(set(outlook)),
-        'humidity': list(set(humidity)),
-        'windy': list(set(windy))
-    }
-    df = pd.DataFrame()
-    df['day'] = day
-    df['temperature'] = temperature
-    df['outlook'] = outlook
-    df['humidity'] = humidity
-    df['windy'] = windy
-    df['Y'] = y
-    return df, set_x, list(set(y))
-
-
-
-
 # 使用ID3构建决策树
 def ID3(df, set_x, set_y, epsilon):
     if df.empty: return None
@@ -226,41 +199,27 @@ def cut_branch(tree, alfa, set_y):
             sum = 0
             leaf_node_num = 0
             for child in tree.child_list:
-                value, is_leaf, node = cut_branch(child, alfa, set_y)
+                value, num, node = cut_branch(child, alfa, set_y)
                 sum += value
-                leaf_node_num += leaf_node_num
+                leaf_node_num += num
             # sum为当前节点统领节点下的叶子节点的
             if result+alfa < sum+alfa*leaf_node_num:
                 tree.child_list = [] # 进行减枝
                 return result, 1, tree
             else:
-                return sum, 0, tree
+                return sum, leaf_node_num, tree
         else: # 是叶子节点
-             return result, 0, tree
-
-
-
-
+             return result, 1, tree
 
 
 if __name__ == '__main__':
-    #df, set_x, set_y = get_data()
-    print(-0.25*math.log(0.25,2) - 0.75*math.log(0.75,2))
-    print(0.81*40)
-    k = 1000
-    p11 = (50*k+5)/(100*k)
-    p12 = (50*k-5)/(100*k)
-    temp = (-p11*math.log(p11,2) - p12*math.log(p12,2))
-    print(temp)
-    print(199992/(200*k))
-    df, set_x, set_y = get_data_two()
-    temp = igain_of_fea(df, set_x, set_y)
-    temp = igain_ratio_of_fea(df, set_x, set_y)
-    #tree = ID3(df, set_x, set_y, 0.001)
-    # tree = C45(df, set_x, set_y, 0.001)
-    # display(tree)
-    # cost, is_leaf, tree = cut_branch(tree, 0.5, set_y)
-    # print('-'*10, '减枝后的树', '-'*10)
-    # display(tree)
-
-    #infor_gain_ratio_of_fea(df, set_x, set_y)
+    df, set_x, set_y = get_data()
+    igain_of_fea(df, set_x, set_y)
+    igain_ratio_of_fea(df, set_x, set_y)
+    tree = ID3(df, set_x, set_y, 0.001)
+    #tree = C45(df, set_x, set_y, 0.001)
+    display(tree)
+    cost, is_leaf, tree = cut_branch(tree, 0.5, set_y)
+    print('-'*10, '减枝后的树', '-'*10)
+    display(tree)
+    # infor_gain_ratio_of_fea(df, set_x, set_y)
