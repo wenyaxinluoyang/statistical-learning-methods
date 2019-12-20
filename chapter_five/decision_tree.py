@@ -5,8 +5,9 @@ import pandas as pd
 import math
 import copy
 
-class Node():
 
+# 树的节点
+class Node():
     def __init__(self, sign, fea_name, fea_value, data):
         self.fea_name = fea_name
         self.sign = sign
@@ -29,16 +30,14 @@ def igain_ratio(x_list, value_of_x, y_list, value_of_y, hy):
 # 计算条件熵
 def condition_entropy(x_list, value_of_x, y_list, value_of_y):
     hx, value_count = entropy(x_list, value_of_x) # x的经验熵，以及x取各种值的计数
-    temp = {x: [] for x in value_of_x}
+    temp = {x: [] for x in value_of_x} # 每种x的取值下，对应的y值
     for x,y in zip(x_list, y_list):
         temp[x].append(y)
     total_x = len(x_list)
     h = 0
     for x, y_belong_x in temp.items():
+        # 计算X=x的条件下, y的经验熵
         hyx, value_count_y = entropy(y_belong_x, value_of_y)
-        # print(x, hyx)
-        # print(value_count[x], total_x)
-        # print('=======')
         h = h + (value_count[x]/total_x)*hyx
     return h
 
@@ -107,19 +106,19 @@ def get_data():
 
 
 # 使用ID3构建决策树
-def ID3(df, set_x, set_y, epsilon):
+def ID3(df, set_x, set_y, threshold):
     if df.empty: return None
     y_unique = df['Y'].values.tolist()
-    # 训练数据集所有实例都属于同一类
+    # 训练数据集所有实例都属于同一类，则为单节点树
     if len(set(y_unique)) == 1:
         tree = Node(y_unique[0], None, None, df)
         return tree
+    # 特征集是空集
     feature_names = df.columns.values.tolist()
     feature_names.remove('Y')
     temp = df['Y'].value_counts()
     temp = temp.reset_index()
     max_count_y = temp.loc[0]['index']
-    # 特征集是空集
     if len(feature_names) == 0:
         tree = Node(max_count_y, None, None, df)
         return tree
@@ -130,20 +129,21 @@ def ID3(df, set_x, set_y, epsilon):
         if value > max_infor_gain:
             max_infor_gain = value
             chose_fea = key
-    if max_infor_gain < epsilon:
+    # 最大信息增益小于阈值
+    if max_infor_gain < threshold:
         tree = Node(max_count_y, None, None, df)
         return tree
     tree = Node(max_count_y, chose_fea, None, df)
     for index, data in df.groupby([chose_fea]):
         sub_df = data.drop([chose_fea], axis=1)
-        child = ID3(sub_df, set_x, set_y, epsilon)
+        child = ID3(sub_df, set_x, set_y, threshold)
         child.fea_value = index
         tree.child_list.append(child)
     return tree
 
 
 # 使用C4.5算法构建生成树, 用信息增益比来选择特征
-def C45(df, set_x, set_y, epsilon):
+def C45(df, set_x, set_y, threshold):
     if df.empty: return None
     y_unique = df['Y'].values.tolist()
     # 训练数据集所有实例都属于同一类
@@ -166,13 +166,13 @@ def C45(df, set_x, set_y, epsilon):
         if value > max_infor_gain:
             max_infor_gain = value
             chose_fea = key
-    if max_infor_gain < epsilon:
+    if max_infor_gain < threshold:
         tree = Node(max_count_y, None, None, df)
         return tree
     tree = Node(max_count_y, chose_fea, None, df)
     for index, data in df.groupby([chose_fea]):
         sub_df = data.drop([chose_fea], axis=1)
-        child = C45(sub_df, set_x, set_y, epsilon)
+        child = C45(sub_df, set_x, set_y, threshold)
         child.fea_value = index
         tree.child_list.append(child)
     return tree
@@ -202,7 +202,7 @@ def cut_branch(tree, alfa, set_y):
                 value, num, node = cut_branch(child, alfa, set_y)
                 sum += value
                 leaf_node_num += num
-            # sum为当前节点统领节点下的叶子节点的
+            # sum为当前节点统领下的叶子节点的
             if result+alfa < sum+alfa*leaf_node_num:
                 tree.child_list = [] # 进行减枝
                 return result, 1, tree
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     tree = ID3(df, set_x, set_y, 0.001)
     #tree = C45(df, set_x, set_y, 0.001)
     display(tree)
-    cost, is_leaf, tree = cut_branch(tree, 0.5, set_y)
-    print('-'*10, '减枝后的树', '-'*10)
-    display(tree)
+    #cost, is_leaf, tree = cut_branch(tree, 0.5, set_y)
+    #print('-'*10, '减枝后的树', '-'*10)
+    #display(tree)
     # infor_gain_ratio_of_fea(df, set_x, set_y)

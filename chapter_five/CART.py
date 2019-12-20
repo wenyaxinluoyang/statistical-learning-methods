@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import pickle
+
 '''
 分类与回归树 (classification and regression tree)
 是二叉树
@@ -31,43 +33,46 @@ class Node:
 def square(value1, value2):
     return math.pow((value1-value2),2 )
 
-
-
 # 构建回归树, 特征是连续型变量，输出也是连续型变量
-def build_regression_tree(df, target):
+def build_regression_tree(df, target, thresold):
+    if df is None: return None
     if df.empty: return None
+    # 样本量小于某个数的时候停止分裂
+    if df.shape[0]<=thresold: return None
     columns = df.columns.values.tolist()
-    # 最小平方损失
-    min_square_loss = INF
-    split_col = None
-    split_value = None
-    left_data = None
-    right_data = None
+    columns.remove(target)
+    if columns is None: return None
+    min_square_loss = INF # 最小平方损失
+    split_col = None # 切分变量
+    split_value = None # 切分值
+    left_data = None # 左训练集
+    right_data = None # 右训练集
     for col in columns:
         values = df[col].values.tolist()
-        y = df[target].values.tolist()
-        for value in values:
-            r1 = df[df[col] <= value]
-            r2 = df[df[col] > value]
-            aver1 = np.average(r1[target].values.tolist())
-            aver2 = np.average(r2[target].values.tolist())
-            sum1 = 0
-            sum2 = 0
-            for y in r1[target].values.tolist():
-                sum1 += square(y, aver1)
-            for y in r2[target].values.tolist():
-                sum2 += square(y, aver2)
-            total = sum1 + sum2
-            if total < min_square_loss:
+        length = len(values)
+        target_values = df[target].values.tolist()
+        if len(list(set(values)))==1: continue
+        for value in list(set(values)):
+            left_target = [target_values[i] for i in range(length) if values[i]<=value]
+            right_target = [target_values[i] for i in range(length) if values[i]>value]
+            if len(left_target)==0 or len(right_target)==0: continue
+            aver1 = np.mean(left_target)
+            aver2 = np.mean(right_target)
+            sum1 = sum2 = 0
+            for y in left_target: sum1 += square(y, aver1)
+            for y in right_target: sum2 += square(y, aver2)
+            if sum1 + sum2 < min_square_loss:
                 split_col = col
                 split_value = value
-                left_data = r1
-                right_data = r2
+                left_data = df[df[col] <= value]
+                right_data = df[df[col] > value]
+    if split_col is None: return None
     tree = Node(split_col, split_value)
+    print(split_col, split_value)
     # 递归构建左右子树
     tree.output = np.average(df[target].values.tolist())
-    tree.left = build_regression_tree(left_data, target)
-    tree.right = build_regression_tree(right_data, target)
+    tree.left = build_regression_tree(left_data, target, thresold)
+    tree.right = build_regression_tree(right_data, target, thresold)
     return tree
 
 
@@ -75,6 +80,12 @@ def build_regression_tree(df, target):
 def build_class_tree(df, set_x, target):
     if df is None: return None
     if df.empty: return None
+    # 如果某个数据集中，所有分类都为同一分类，则不需再划分,因为对于任何特征，其基尼系数都是0
+    target_values = df[target].values.tolist()
+    if len(set(target_values)) == 1:
+        node = Node('', '')
+        node.output = target_values[0]
+        return node
     columns = df.columns.values.tolist()
     columns.remove(target)
     min_gini = INF
@@ -84,6 +95,9 @@ def build_class_tree(df, set_x, target):
     right_df = None
     for col in columns:
         value_of_col = set_x[col]
+        values = df[col].values.tolist()
+        if len(list(set(values))) == 1:
+            continue
         # 枚举特征col可取的每一个值
         for value in value_of_col:
             df1 = df[df[col] == value]
@@ -100,23 +114,17 @@ def build_class_tree(df, set_x, target):
             for _, count in zip(temp2['index'].values.tolist(), temp2[target].values.tolist()):
                 sum += (count*count)/fm2
             gini2 = 1 - sum
-            gini_df_col = df1.shape[0]/df.shape[0]*gini1 + df2.shape[0]/df.shape[0]*gini2
+            gini = df1.shape[0]/df.shape[0]*gini1 + df2.shape[0]/df.shape[0]*gini2
             #print(f'特征值={col}; 取值={value}; 基尼指数={gini_df_col}')
-            if gini_df_col < min_gini:
-                min_gini = gini_df_col
+            if gini < min_gini:
+                min_gini = gini
                 fea_name = col
                 split_value = value
                 left_df = df1
                 right_df = df2
-        #print('-'*50)
-    # if min_gini == 0.0:
-    #     return None
     if fea_name is None: return None
-    if left_df is not None and left_df.empty == False:
-        left_df = left_df.drop([fea_name], axis=1)
-    if right_df is not None and right_df.empty == False:
-        right_df = right_df.drop([fea_name], axis=1)
     tree = Node(fea_name, split_value)
+    tree.output = target_counts = df[target].value_counts()[0]
     tree.left = build_class_tree(left_df, set_x, target)
     tree.right = build_class_tree(right_df, set_x, target)
     return tree
@@ -141,18 +149,44 @@ def get_data():
     df['Y'] = y
     return df, set_x, set_y
 
-
-
 def display(tree, level=1):
      if tree is not None:
-        print(f'特征名:{tree.fea_name}; 特征划分值:{tree.split_value}; 层次:{level}')
+        print(f'特征名:{tree.fea_name} 特征划分值:{tree.split_value} 最大分类:{tree.output} 层次:{level}')
         if tree.left is not None:
             display(tree.left, level+1)
         if tree.right is not None:
             display(tree.right, level+1)
 
+def regression_predict(test_data, root):
+    predict_target = []
+    for index, row in test_data.iterrows():
+        temp = root
+        output = 0
+        while temp is not None:
+            value = row[temp.fea_name]
+            output = temp.output
+            if value <= temp.split_value: temp = temp.left
+            else: temp = temp.right
+        predict_target.append(output)
+    test_data['predict_target'] = predict_target
+    return test_data
+
+
 if __name__ == '__main__':
     df, set_x, set_y = get_data()
+    # train_data, test_data = get_data2()
+    # tree = build_regression_tree(train_data, target='pm2.5', thresold=50)
+    # print('build tree success')
+    # f = open('./data/model.pkl', 'wb')
+    # pickle.dump(tree, f)
+    # display(tree)
+    # f = open('./data/model.pkl', 'rb')
+    # tree = pickle.load(f)
+    # result = regression_predict(test_data, tree)
+    # result = regression_predict(test_data, tree)
+    # result.to_csv('result.csv', index=False)
+    # result.to_csv('./data/result2.csv')
+    #df, set_x, set_y = get_data()
     tree = build_class_tree(df, set_x, 'Y')
     display(tree)
 
