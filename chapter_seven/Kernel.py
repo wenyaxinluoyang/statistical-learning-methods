@@ -22,7 +22,6 @@ class Polynomial_Kernel_Func(Kernel_Func):
         self.__p = p
 
     def calculate(self, x, z,):
-        p = kwargs['degree'] # 多项式的次数
         return math.pow(x * z + 1, self.__p)
 
 
@@ -33,5 +32,10 @@ class Gaussian_Kernel_Func(Kernel_Func):
         self.__sigma = sigma
 
     def calculate(self, x, z):
-        sigma = kwargs['sigma']
         return math.exp(-self.normalForm(x, z, 2)/(2*self.__sigma*self.__sigma))
+
+# 线性核函数
+class Linear_Kernel_Func(Kernel_Func):
+
+    def calculate(self, x, z):
+        return np.dot(x,z)[0]
